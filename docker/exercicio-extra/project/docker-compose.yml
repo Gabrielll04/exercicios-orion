@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: postgres-db
+    restart: always
+    env_file:
+      - .postgres.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: node-api
+    ports:
+      - "3000:3000"
+    env_file:
+      - .api.env
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend
+      - frontend
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: always
+    env_file:
+      - .pgadmin.env
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - backend
+      - frontend
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  backend:
+    name: project_backend
+    driver: bridge
+  frontend:
+    name: project_frontend
+    driver: bridge
